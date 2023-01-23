@@ -35,9 +35,6 @@ module.exports = function(md, options) {
       // Remove abbreviations
       output = output.replace(/\*\[.*\]:.*\n/, '');
     }
-    output = output
-    // Remove HTML tags
-      .replace(/<[^>]*>/g, '')
 
     var htmlReplaceRegex = new RegExp('<[^>]*>', 'g');
     if (options.htmlTagsToSkip.length > 0) {
@@ -53,9 +50,16 @@ module.exports = function(md, options) {
       );
     }
 
+    const htmlPossibleTags = output.match(htmlReplaceRegex);
+    if (htmlPossibleTags) {
+      htmlPossibleTags.forEach(function(string) {
+        if (isHtmlTag(string)) {
+          output = removeHtmltagIfNotInsideCodeblock(md, output, string);
+        }
+      });
+    }
+
     output = output
-      // Remove HTML tags
-      .replace(htmlReplaceRegex, '')
       // Remove setext-style headers
       .replace(/^[=\-]{2,}\s*$/g, '')
       // Remove footnotes?
@@ -94,3 +98,24 @@ module.exports = function(md, options) {
   }
   return output;
 };
+
+function isHtmlTag(string) {
+  const splittedString = string.replace('/', '').split(' ');
+  const htmlTags = require('./html_tags.json');
+
+  string = string.replace('<', '').replace('>', '').replace('/', '');
+
+  return !(Boolean( string.match(/\d/) ) && (!isNaN(splittedString[1]) || !isNaN(splittedString.reverse()[1]))) && htmlTags.includes(string[0]);
+}
+
+function removeHtmltagIfNotInsideCodeblock(md, output, tag, codeMark = '`') {
+  const re = new RegExp(tag,'gi');
+
+  while (exec = re.exec(output)){
+    if (md[exec.index - 1] !== codeMark || md[re.lastIndex] !== codeMark) {
+      output = output.substring(0, exec.index) + output.substring(re.lastIndex);
+    }
+  }
+
+  return output;
+}
